@@ -130,6 +130,8 @@ REST_FRAMEWORK = {
     ),
 }
 
+EMAIL_FOR_CHECK = 'me@domain.com'
+
 try:
     from project.local_settings import *
 except ImportError:
