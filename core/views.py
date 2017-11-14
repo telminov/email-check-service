@@ -13,6 +13,10 @@ from core import serializers
 STATUS_SMTP_SUCCESS = 250
 
 
+class CheckEMailException(Exception):
+    """Server status response error"""
+
+
 class CheckEmail(APIView):
     authentication_classes = (TokenAuthentication, )
     serializer_class = serializers.CheckEmail
@@ -23,17 +27,16 @@ class CheckEmail(APIView):
 
         email = serializer.validated_data['email']
 
-        if self.verify_email(email):
+        try:
+            self.verify_email(email)
             return Response(data=email, status=status.HTTP_200_OK)
-        else:
-            return Response(data={'error': "Email doesn't exists"}, status=status.HTTP_400_BAD_REQUEST)
+        except (dns.resolver.NXDOMAIN, socket.timeout, smtplib.SMTPConnectError, CheckEMailException) as ex:
+            return Response(data={'error': "{}".format(str(ex))}, status=status.HTTP_400_BAD_REQUEST)
 
     def verify_email(self, email):
         domain_name = email.split('@')[1]
 
-        records = dns.resolver.query(domain_name, 'MX')
-        mxRecord = records[0].exchange
-        mxRecord = str(mxRecord)
+        mxRecord = self.get_dns(domain_name)
 
         host = socket.gethostname()
 
@@ -46,9 +49,12 @@ class CheckEmail(APIView):
         code, message = server.rcpt(str(email))
         server.quit()
 
-        if code == STATUS_SMTP_SUCCESS:
-            answer = True
-        else:
-            answer = False
+        if code != STATUS_SMTP_SUCCESS:
+            raise CheckEMailException('Server returned a bad status')
 
-        return answer
+    def get_dns(self, domain_name):
+        records = dns.resolver.query(domain_name, 'MX')
+        mxRecord = records[0].exchange
+        mxRecord = str(mxRecord)
+
+        return mxRecord
