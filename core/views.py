@@ -50,7 +50,7 @@ class CheckEmail(APIView):
         server.quit()
 
         if code != STATUS_SMTP_SUCCESS:
-            raise CheckEMailException('Server returned a bad status')
+            raise CheckEMailException('Server returned {}. {}'.format(code, message))
 
     def get_dns(self, domain_name):
         records = dns.resolver.query(domain_name, 'MX')
